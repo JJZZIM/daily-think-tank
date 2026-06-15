@@ -18,16 +18,15 @@ DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 # ---------- 配置区结束 ----------
 
 def fetch_top_headlines():
-    """从 NewsAPI 获取热点新闻"""
+    """从 NewsAPI 获取热点新闻（使用最稳定的基础参数）"""
     url = "https://newsapi.org/v2/top-headlines"
     params = {
         "apiKey": NEWS_API_KEY,
-        "q": KEYWORDS,
-        "from": FROM_DATE,
-        "language": "zh",        # 中文新闻
-        "pageSize": 20,          # 获取 20 条
-        "sortBy": "popularity"
+        "country": "us",           # 美国新闻（最多、最稳定）
+        "category": "general",     # 综合类，覆盖面最广
+        "pageSize": 10
     }
+    
     response = requests.get(url, params=params)
     data = response.json()
     
@@ -36,6 +35,10 @@ def fetch_top_headlines():
         return []
     
     articles = data.get("articles", [])
+    if not articles:
+        print(f"⚠️ API 返回成功，但无新闻。完整响应：{json.dumps(data, ensure_ascii=False)}")
+        return []
+    
     headlines = []
     for article in articles:
         headlines.append({
@@ -44,6 +47,7 @@ def fetch_top_headlines():
             "url": article["url"],
             "source": article["source"]["name"]
         })
+    print(f"✅ 成功获取 {len(headlines)} 条新闻")
     return headlines
 
 def analyze_with_deepseek(headlines):
