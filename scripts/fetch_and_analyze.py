@@ -92,24 +92,9 @@ def analyze_with_deepseek(headlines):
 
 def send_to_feishu(content):
     """推送报告到飞书群"""
-    title = f"📅 每日深度思考报告 ({datetime.now().strftime('%Y-%m-%d')})"
     payload = {
-        "msg_type": "interactive",
-        "card": {
-            "header": {
-                "title": {
-                    "tag": "plain_text",
-                    "content": title
-                },
-                "template": "blue"
-            },
-            "elements": [
-                {
-                    "tag": "markdown",
-                    "content": content
-                }
-            ]
-        }
+        "msgtype": "markdown",
+        "markdown": {"content": content}
     }
     
     response = requests.post(FEISHU_WEBHOOK_URL, json=payload)
