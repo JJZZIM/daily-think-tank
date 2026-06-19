@@ -18,37 +18,45 @@ DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 # ---------- 配置区结束 ----------
 
 def fetch_top_headlines():
-    """从 NewsAPI 获取热点新闻（使用最稳定的基础参数）"""
+    """从多个类别获取全球热点新闻，拼合为跨领域视野"""
     url = "https://newsapi.org/v2/top-headlines"
-    params = {
-        "apiKey": NEWS_API_KEY,
-        "country": "us",           # 美国新闻（最多、最稳定）
-        "category": "general",     # 综合类，覆盖面最广
-        "pageSize": 10
-    }
-    
-    response = requests.get(url, params=params)
-    data = response.json()
-    
-    if data["status"] != "ok":
-        print(f"❌ 新闻获取失败：{data.get('message', '未知错误')}")
-        return []
-    
-    articles = data.get("articles", [])
-    if not articles:
-        print(f"⚠️ API 返回成功，但无新闻。完整响应：{json.dumps(data, ensure_ascii=False)}")
-        return []
-    
-    headlines = []
-    for article in articles:
-        headlines.append({
-            "title": article["title"],
-            "description": article.get("description", ""),
-            "url": article["url"],
-            "source": article["source"]["name"]
-        })
-    print(f"✅ 成功获取 {len(headlines)} 条新闻")
-    return headlines
+
+    # 你想要覆盖的新闻类别
+    categories = [
+        "business",      # 商业
+        "technology",    # 科技
+        "science",       # 科学
+        "general",       # 综合（含政治、社会等）
+    ]
+
+    all_headlines = []
+
+    for category in categories:
+        params = {
+            "apiKey": NEWS_API_KEY,
+            "category": category,
+            "pageSize": 10,         # 每个类别取 10 条
+        }
+        try:
+            response = requests.get(url, params=params)
+            data = response.json()
+            if data["status"] == "ok":
+                articles = data.get("articles", [])
+                for article in articles:
+                    all_headlines.append({
+                        "title": article["title"],
+                        "description": article.get("description", ""),
+                        "url": article["url"],
+                        "source": f"{article['source']['name']} [{category}]"
+                    })
+                print(f"✅ 类别 {category}：获取到 {len(articles)} 条新闻")
+            else:
+                print(f"⚠️ 类别 {category} 获取失败：{data.get('message', '未知')}")
+        except Exception as e:
+            print(f"❌ 类别 {category} 请求异常：{e}")
+
+    print(f"📰 共获取 {len(all_headlines)} 条全球跨领域新闻")
+    return all_headlines
 
 def analyze_with_deepseek(headlines):
     """调用 DeepSeek API 进行深度分析"""
