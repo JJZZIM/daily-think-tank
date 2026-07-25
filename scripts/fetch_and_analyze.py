@@ -14,7 +14,7 @@ KEYWORDS = "社会科学 OR 文化哲学 OR 经济科技 OR 社会科学 OR phil
 FROM_DATE = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
 
 # DeepSeek API 配置
-DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+DEEPSEEK_URL = "https://api.deepseek.com"
 # ---------- 配置区结束 ----------
 
 def fetch_top_headlines():
@@ -75,7 +75,7 @@ def analyze_with_deepseek(headlines):
 语言精炼，观点鲜明，总字数控制在600字内。"""
 
     payload = {
-        "model": "deepseek-chat",
+        "model": "deepseek-v4-flash",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"今日热点新闻如下：\n{news_text}"}
