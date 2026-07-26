@@ -14,7 +14,7 @@ KEYWORDS = "社会科学 OR 文化哲学 OR 经济科技 OR 社会科学 OR phil
 FROM_DATE = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
 
 # DeepSeek API 配置
-DEEPSEEK_URL = "https://api.deepseek.com"
+DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 # ---------- 配置区结束 ----------
 
 def fetch_top_headlines():
