@@ -89,14 +89,46 @@ def analyze_with_deepseek(headlines):
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
     }
     
-    response = requests.post(DEEPSEEK_URL, headers=headers, json=payload)
-    data = response.json()
-    
     try:
-        return data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError) as e:
-        print(f"❌ AI 分析失败：{data}")
-        return "分析生成失败，请检查 API 或日志。"
+        response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=60)
+
+        # 第一步：检查 HTTP 状态码
+        if response.status_code != 200:
+            print(f"❌ DeepSeek API 返回非 200 状态码：{response.status_code}")
+            print(f"   响应内容：{response.text[:500]}")  # 只打印前500个字符
+            return f"AI 分析失败：API 返回状态码 {response.status_code}"
+
+        # 第二步：安全地解析 JSON
+        try:
+            data = response.json()
+        except Exception as json_err:
+            print(f"❌ DeepSeek 返回的内容不是合法 JSON：{json_err}")
+            print(f"   原始响应前500字符：{response.text[:500]}")
+            return "AI 分析失败：API 返回了非 JSON 格式的内容，请检查 API Key 或账户状态。"
+
+        # 第三步：提取分析结果
+        if "choices" in data and len(data["choices"]) > 0:
+            content = data["choices"][0].get("message", {}).get("content", "")
+            if content:
+                return content
+            else:
+                print(f"⚠️ DeepSeek 返回的 choices 中没有 content")
+                print(f"   完整响应：{json.dumps(data, ensure_ascii=False)[:500]}")
+                return "AI 分析失败：API 返回了空内容。"
+        else:
+            print(f"⚠️ DeepSeek 返回的数据结构异常")
+            print(f"   完整响应：{json.dumps(data, ensure_ascii=False)[:500]}")
+            return "AI 分析失败：API 返回的数据结构不符合预期。"
+
+    except requests.exceptions.Timeout:
+        print("❌ DeepSeek API 请求超时")
+        return "AI 分析失败：请求超时，请稍后重试。"
+    except requests.exceptions.ConnectionError:
+        print("❌ 无法连接到 DeepSeek API，请检查网络")
+        return "AI 分析失败：网络连接错误。"
+    except Exception as e:
+        print(f"❌ 调用 DeepSeek 时发生未知错误：{type(e).__name__}: {e}")
+        return f"AI 分析失败：未知错误 {type(e).__name__}"
 
 def send_to_feishu(content):
     """推送报告到飞书群"""
