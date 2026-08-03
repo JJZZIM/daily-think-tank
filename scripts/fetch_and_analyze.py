@@ -82,6 +82,9 @@ def analyze_with_deepseek(headlines):
         ],
         "temperature": 0.7,
         "max_tokens": 1200
+        "extra_body": {
+        "enable_reasoning": False   # 部分模型支持，视API文档而定
+        }
     }
     
     headers = {
@@ -108,11 +111,15 @@ def analyze_with_deepseek(headlines):
 
         # 第三步：提取分析结果
         if "choices" in data and len(data["choices"]) > 0:
-            content = data["choices"][0].get("message", {}).get("content", "")
-            if content:
-                return content
+            message = data["choices"][0].get("message", {})
+            content = message.get("content", "").strip()
+            reasoning = message.get("reasoning_content", "").strip()
+            # 如果 content 为空，尝试用 reasoning_content
+            final_content = content if content else reasoning
+            if final_content:
+                return final_content
             else:
-                print(f"⚠️ DeepSeek 返回的 choices 中没有 content")
+                print(f"⚠️ DeepSeek 返回的 content 和 reasoning_content 均为空")
                 print(f"   完整响应：{json.dumps(data, ensure_ascii=False)[:500]}")
                 return "AI 分析失败：API 返回了空内容。"
         else:
