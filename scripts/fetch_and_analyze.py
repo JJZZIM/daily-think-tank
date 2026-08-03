@@ -81,7 +81,7 @@ def analyze_with_deepseek(headlines):
             {"role": "user", "content": f"今日热点新闻如下：\n{news_text}"}
         ],
         "temperature": 0.7,
-        "max_tokens": 1200
+        "max_tokens": 1200，
         "extra_body": {
         "enable_reasoning": False   # 部分模型支持，视API文档而定
         }
