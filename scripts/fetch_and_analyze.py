@@ -72,7 +72,7 @@ def analyze_with_deepseek(headlines):
 2. **跨领域连接点**：寻找社会科学、文化哲学、经济科技之间的交叉议题，提出1-2个值得深入思考的方向。
 3. **深度思考方向**：为每个领域（社科、文化哲学、经科）分别提出1-2个可供进一步研究的问题或视角。
 
-语言精炼，观点鲜明，总字数控制在600字内。"""
+语言精炼，观点鲜明，总字数控制在350字内。"""
 
     payload = {
         "model": "deepseek-v4-flash",
@@ -81,7 +81,7 @@ def analyze_with_deepseek(headlines):
             {"role": "user", "content": f"今日热点新闻如下：\n{news_text}"}
         ],
         "temperature": 0.7,
-        "max_tokens": 1200,
+        "max_tokens": 800,
         "extra_body": {
         "enable_reasoning": False   # 部分模型支持，视API文档而定
         }
