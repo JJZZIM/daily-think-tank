@@ -85,7 +85,7 @@ def analyze_with_deepseek(headlines):
         system_prompt = base_prompt
         if attempt == 2:
             # 第二次请求追加禁止思考过程的指令
-            system_prompt += "\n\n重要：请直接输出最终报告，不要包含任何思考过程、分析步骤或中间推理。"
+            system_prompt += "\n\n重要：三个部份必须全部输出，缺一不可，每部份内容可直接输出最终报告，不要包含任何思考过程、分析步骤或中间推理。"
 
         payload = {
             "model": "deepseek-v4-flash",  # 使用你当前的模型
@@ -94,7 +94,7 @@ def analyze_with_deepseek(headlines):
                 {"role": "user", "content": f"今日热点新闻如下：\n{news_text}"}
             ],
             "temperature": 0.7,
-            "max_tokens": 800,  # 限制输出长度，从源头防止超长
+            "max_tokens": 2000,  # 限制输出长度，从源头防止超长
             "extra_body": {
             "thinking": {"type": "disabled"}  # 关闭思考模式
             }
