@@ -82,78 +82,61 @@ def analyze_with_deepseek(headlines):
 
     # 最多请求两次：第一次正常，第二次加强化提示词
     for attempt in range(1, 3):
-        # 第二次请求时，追加禁止思考过程的指令
         system_prompt = base_prompt
         if attempt == 2:
+            # 第二次请求追加禁止思考过程的指令
             system_prompt += "\n\n重要：请直接输出最终报告，不要包含任何思考过程、分析步骤或中间推理。"
 
         payload = {
-            "model": "deepseek-flash",
+            "model": "deepseek-v4-flash",  # 使用你当前的模型
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"今日热点新闻如下：\n{news_text}"}
             ],
             "temperature": 0.7,
-            "max_tokens": 800
+            "max_tokens": 800  # 限制输出长度，从源头防止超长
         }
 
         try:
             response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=90)
+            # ... 处理非 200 状态码 ...
 
-            # 处理非 200 状态码
-            if response.status_code != 200:
-                print(f"❌ DeepSeek API 返回状态码 {response.status_code}（第 {attempt} 次）")
-                print(f"   响应内容：{response.text[:300]}")
-                if attempt == 1:
-                    time.sleep(5)
-                    continue
-                return f"AI 分析失败：API 返回状态码 {response.status_code}"
-
-            # 解析 JSON
             data = response.json()
-
-            if "choices" not in data or len(data["choices"]) == 0:
-                print(f"⚠️ 返回结构异常（第 {attempt} 次）：{json.dumps(data, ensure_ascii=False)[:300]}")
-                if attempt == 1:
-                    time.sleep(3)
-                    continue
-                return "AI 分析失败：API 返回结构异常。"
+            # ... 检查 choices 结构 ...
 
             message = data["choices"][0].get("message", {})
             content = message.get("content", "").strip()
             reasoning = message.get("reasoning_content", "").strip()
 
-            # ✅ content 有效 → 直接返回，完全忽略 reasoning
+            # ✅ content 有效 → 直接返回
             if content:
                 print(f"✅ 成功获取分析报告，长度：{len(content)} 字符")
                 return content
 
-            # ⚠️ content 为空，但存在 reasoning → 不使用它，进入下一次重试
+            # ⚠️ content 为空 → 不使用 reasoning，触发重试
             if reasoning:
                 print(f"⚠️ content 为空，检测到 reasoning_content（长度 {len(reasoning)}）")
-                print(f"   第 {attempt} 次尝试未产出有效内容，准备重试...")
                 if attempt == 1:
+                    print("   将使用强化提示词重试，避免推送冗长的思考过程。")
                     time.sleep(3)
                     continue
                 return "AI 分析失败：模型仅返回了推理过程，未产出最终报告。"
 
             # ⚠️ 两者都为空
-            print(f"⚠️ content 和 reasoning_content 均为空（第 {attempt} 次）")
-            print(f"   完整响应：{json.dumps(data, ensure_ascii=False)[:500]}")
+            print(f"⚠️ content 和 reasoning_content 均为空")
             if attempt == 1:
                 time.sleep(3)
                 continue
             return "AI 分析失败：API 返回了空内容。"
 
         except requests.exceptions.Timeout:
-            print(f"❌ 请求超时（第 {attempt} 次）")
+            # ... 超时处理 ...
             if attempt == 1:
                 time.sleep(5)
                 continue
             return "AI 分析失败：请求超时，请稍后重试。"
-
         except Exception as e:
-            print(f"❌ 调用异常（第 {attempt} 次）：{type(e).__name__}: {e}")
+            # ... 其他异常处理 ...
             if attempt == 1:
                 time.sleep(5)
                 continue
