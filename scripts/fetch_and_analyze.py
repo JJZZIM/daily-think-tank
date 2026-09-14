@@ -87,7 +87,7 @@ def analyze_with_deepseek(headlines):
             system_prompt += "\n\n重要：请直接输出最终报告，不要包含任何思考过程、分析步骤或中间推理。"
 
         payload = {
-            "model": "deepseek-v3",
+            "model": "deepseek-v4.1-flash",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"今日热点新闻如下：\n{news_text}"}
