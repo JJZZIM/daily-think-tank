@@ -59,83 +59,104 @@ def fetch_top_headlines():
     return all_headlines
 
 def analyze_with_deepseek(headlines):
-    """调用 DeepSeek API 进行深度分析"""
+    """调用 DeepSeek API 进行深度分析（含 content 为空时的内部重试）"""
     # 拼接新闻摘要
     news_text = ""
     for i, h in enumerate(headlines, 1):
         news_text += f"{i}. [{h['source']}] {h['title']}\n   {h['description']}\n"
-    
-    system_prompt = """你是一位资深的社会科学、文化哲学和经济科技领域趋势分析师。
+
+    base_prompt = """你是一位资深的社会科学、文化哲学和经济科技领域趋势分析师。
 请根据提供的今日热点新闻，生成一份具有洞察价值的每日信息简报。按以下结构输出：
 
 1. **今日关键信号**：提炼3-5个最关键、可能产生深远影响的信号或趋势，简要说明理由。
 2. **跨领域连接点**：寻找社会科学、文化哲学、经济科技之间的交叉议题，提出1-2个值得深入思考的方向。
 3. **深度思考方向**：为每个领域（社科、文化哲学、经科）分别提出1-2个可供进一步研究的问题或视角。
 
-语言精炼，观点鲜明，总字数控制在350字内。"""
+要求：语言精炼，观点鲜明，总字数控制在 350 字以内。"""
 
-    payload = {
-        "model": "deepseek-v4-flash",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"今日热点新闻如下：\n{news_text}"}
-        ],
-        "temperature": 0.7,
-        "max_tokens": 800,
-        "extra_body": {
-        "enable_reasoning": False   # 部分模型支持，视API文档而定
-        }
-    }
-    
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
     }
-    
-    try:
-        response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=60)
 
-        # 第一步：检查 HTTP 状态码
-        if response.status_code != 200:
-            print(f"❌ DeepSeek API 返回非 200 状态码：{response.status_code}")
-            print(f"   响应内容：{response.text[:500]}")  # 只打印前500个字符
-            return f"AI 分析失败：API 返回状态码 {response.status_code}"
+    # 最多请求两次：第一次正常，第二次加强化提示词
+    for attempt in range(1, 3):
+        # 第二次请求时，追加禁止思考过程的指令
+        system_prompt = base_prompt
+        if attempt == 2:
+            system_prompt += "\n\n重要：请直接输出最终报告，不要包含任何思考过程、分析步骤或中间推理。"
 
-        # 第二步：安全地解析 JSON
+        payload = {
+            "model": "deepseek-v3",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"今日热点新闻如下：\n{news_text}"}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 800
+        }
+
         try:
-            data = response.json()
-        except Exception as json_err:
-            print(f"❌ DeepSeek 返回的内容不是合法 JSON：{json_err}")
-            print(f"   原始响应前500字符：{response.text[:500]}")
-            return "AI 分析失败：API 返回了非 JSON 格式的内容，请检查 API Key 或账户状态。"
+            response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=90)
 
-        # 第三步：提取分析结果
-        if "choices" in data and len(data["choices"]) > 0:
+            # 处理非 200 状态码
+            if response.status_code != 200:
+                print(f"❌ DeepSeek API 返回状态码 {response.status_code}（第 {attempt} 次）")
+                print(f"   响应内容：{response.text[:300]}")
+                if attempt == 1:
+                    time.sleep(5)
+                    continue
+                return f"AI 分析失败：API 返回状态码 {response.status_code}"
+
+            # 解析 JSON
+            data = response.json()
+
+            if "choices" not in data or len(data["choices"]) == 0:
+                print(f"⚠️ 返回结构异常（第 {attempt} 次）：{json.dumps(data, ensure_ascii=False)[:300]}")
+                if attempt == 1:
+                    time.sleep(3)
+                    continue
+                return "AI 分析失败：API 返回结构异常。"
+
             message = data["choices"][0].get("message", {})
             content = message.get("content", "").strip()
             reasoning = message.get("reasoning_content", "").strip()
-            # 如果 content 为空，尝试用 reasoning_content
-            final_content = content if content else reasoning
-            if final_content:
-                return final_content
-            else:
-                print(f"⚠️ DeepSeek 返回的 content 和 reasoning_content 均为空")
-                print(f"   完整响应：{json.dumps(data, ensure_ascii=False)[:500]}")
-                return "AI 分析失败：API 返回了空内容。"
-        else:
-            print(f"⚠️ DeepSeek 返回的数据结构异常")
-            print(f"   完整响应：{json.dumps(data, ensure_ascii=False)[:500]}")
-            return "AI 分析失败：API 返回的数据结构不符合预期。"
 
-    except requests.exceptions.Timeout:
-        print("❌ DeepSeek API 请求超时")
-        return "AI 分析失败：请求超时，请稍后重试。"
-    except requests.exceptions.ConnectionError:
-        print("❌ 无法连接到 DeepSeek API，请检查网络")
-        return "AI 分析失败：网络连接错误。"
-    except Exception as e:
-        print(f"❌ 调用 DeepSeek 时发生未知错误：{type(e).__name__}: {e}")
-        return f"AI 分析失败：未知错误 {type(e).__name__}"
+            # ✅ content 有效 → 直接返回，完全忽略 reasoning
+            if content:
+                print(f"✅ 成功获取分析报告，长度：{len(content)} 字符")
+                return content
+
+            # ⚠️ content 为空，但存在 reasoning → 不使用它，进入下一次重试
+            if reasoning:
+                print(f"⚠️ content 为空，检测到 reasoning_content（长度 {len(reasoning)}）")
+                print(f"   第 {attempt} 次尝试未产出有效内容，准备重试...")
+                if attempt == 1:
+                    time.sleep(3)
+                    continue
+                return "AI 分析失败：模型仅返回了推理过程，未产出最终报告。"
+
+            # ⚠️ 两者都为空
+            print(f"⚠️ content 和 reasoning_content 均为空（第 {attempt} 次）")
+            print(f"   完整响应：{json.dumps(data, ensure_ascii=False)[:500]}")
+            if attempt == 1:
+                time.sleep(3)
+                continue
+            return "AI 分析失败：API 返回了空内容。"
+
+        except requests.exceptions.Timeout:
+            print(f"❌ 请求超时（第 {attempt} 次）")
+            if attempt == 1:
+                time.sleep(5)
+                continue
+            return "AI 分析失败：请求超时，请稍后重试。"
+
+        except Exception as e:
+            print(f"❌ 调用异常（第 {attempt} 次）：{type(e).__name__}: {e}")
+            if attempt == 1:
+                time.sleep(5)
+                continue
+            return f"AI 分析失败：{type(e).__name__}"
 
 def send_to_feishu(content):
     """推送报告到飞书群"""
