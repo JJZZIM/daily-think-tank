@@ -95,6 +95,9 @@ def analyze_with_deepseek(headlines):
             ],
             "temperature": 0.7,
             "max_tokens": 800  # 限制输出长度，从源头防止超长
+            "extra_body": {
+            "thinking": {"type": "disabled"}  # 关闭思考模式
+            }
         }
 
         try:
